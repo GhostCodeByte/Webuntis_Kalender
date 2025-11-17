@@ -1,0 +1,91 @@
+name: Build APK Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (z.B. v1.0.0)'
+        required: true
+      release_name:
+        description: 'Name der Veröffentlichung'
+        required: true
+      release_notes:
+        description: 'Änderungen / Highlights'
+        required: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EAS_LOCAL_BUILD_ARTIFACTS_DIR: dist
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-modules-
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Login to EAS
+        if: env.EXPO_TOKEN != ''
+        run: npx eas login --token "$EXPO_TOKEN"
+
+      - name: Install EAS local build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils
+        continue-on-error: true
+
+      - name: Build Android APK (local)
+        run: npx eas build --profile preview --platform android --local --non-interactive
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: dist/**/*.apk
+
+      - name: Resolve APK path
+        id: resolve_apk
+        run: |
+          APK_PATH=$(ls dist/**/*.apk | head -n 1)
+          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.event.inputs.tag_name }}
+          release_name: ${{ github.event.inputs.release_name }}
+          body: ${{ github.event.inputs.release_notes }}
+          draft: false
+          prerelease: false
+
+      - name: Upload APK to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.resolve_apk.outputs.apk_path }}
+          asset_name: WebUntisKalender-${{ github.event.inputs.tag_name }}.apk
+          asset_content_type: application/vnd.android.package-archive
