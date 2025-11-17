@@ -31,8 +31,13 @@ export default function DashboardScreen() {
   }, [hydrated, secretsReady]);
 
   useEffect(() => {
-    if (hydrated && autoSyncEnabled && hasGoogleRefresh) {
-      registerBackgroundSync().catch((error) => console.warn('Background sync failed', error));
+    if (hydrated && autoSyncEnabled) {
+      // Background sync should work for both providers
+      const calendarProvider = useSettingsStore.getState().calendarProvider;
+      const isReady = calendarProvider === 'device' || hasGoogleRefresh;
+      if (isReady) {
+        registerBackgroundSync().catch((error) => console.warn('Background sync failed', error));
+      }
     }
   }, [hydrated, autoSyncEnabled, hasGoogleRefresh]);
 
@@ -41,7 +46,15 @@ export default function DashboardScreen() {
       setLoading(true);
       setError(null);
       const snapshot = getSettingsSnapshot();
-      const pushToCalendar = Boolean(snapshot.googleRefreshToken && snapshot.googleConfig.clientId);
+      
+      // Determine if we should push to calendar based on provider
+      let pushToCalendar = false;
+      if (snapshot.calendarProvider === 'google') {
+        pushToCalendar = Boolean(snapshot.googleRefreshToken && snapshot.googleConfig.clientId);
+      } else if (snapshot.calendarProvider === 'device') {
+        pushToCalendar = true; // Device calendar doesn't need OAuth
+      }
+      
       const result = await runSync({ settings: snapshot, pushToCalendar });
       const items = buildViewModel(result.lessons, {
         mode: snapshot.viewMode,
@@ -75,7 +88,7 @@ export default function DashboardScreen() {
       refreshControl={<RefreshControl refreshing={loading} onRefresh={handleSync} />}
     >
       <Text style={[styles.heading, { color: palette.text }]}>Dein Stundenplan</Text>
-      <Text style={[styles.subtitle, { color: palette.mutedText }]}>Synchronisiere WebUntis automatisch mit Google Kalender.</Text>
+      <Text style={[styles.subtitle, { color: palette.mutedText }]}>Synchronisiere WebUntis mit deinem Kalender.</Text>
 
       <PrimaryButton label={ready ? 'Jetzt synchronisieren' : 'Lade Einstellungen...'} onPress={handleSync} disabled={!ready} loading={loading} />
 
