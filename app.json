@@ -16,14 +16,21 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCalendarsUsageDescription": "Diese App benötigt Zugriff auf deinen Kalender, um WebUntis-Termine mit deinem Gerät zu synchronisieren."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#f6f1eb"
       },
-      "package": "com.ghostcodebyte.webuntiskalender"
+      "package": "com.ghostcodebyte.webuntiskalender",
+      "permissions": [
+        "READ_CALENDAR",
+        "WRITE_CALENDAR"
+      ]
     },
     "web": {
       "bundler": "metro"
@@ -33,6 +40,12 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png"
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Diese App benötigt Zugriff auf deinen Kalender, um WebUntis-Termine mit deinem Gerät zu synchronisieren."
         }
       ],
       "expo-router"

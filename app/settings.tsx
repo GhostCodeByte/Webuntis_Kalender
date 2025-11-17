@@ -6,8 +6,9 @@ import { InputField } from '../src/components/InputField';
 import { ToggleRow } from '../src/components/ToggleRow';
 import { SegmentedControl } from '../src/components/SegmentedControl';
 import { PrimaryButton } from '../src/components/PrimaryButton';
-import { useSettingsStore, type LessonViewMode } from '../src/state/settingsStore';
+import { useSettingsStore, type LessonViewMode, type CalendarProvider } from '../src/state/settingsStore';
 import { startGoogleAuthFlow } from '../src/api/googleCalendar';
+import { requestCalendarPermissions, getDeviceCalendars, getOrCreateWebUntisCalendar } from '../src/api/expoCalendar';
 
 export default function SettingsScreen() {
   const palette = useTheme();
@@ -24,8 +25,12 @@ export default function SettingsScreen() {
   const autoSyncEnabled = useSettingsStore((state) => state.autoSyncEnabled);
   const autoSyncTime = useSettingsStore((state) => state.autoSyncTime);
   const setAutoSync = useSettingsStore((state) => state.setAutoSync);
+  const calendarProvider = useSettingsStore((state) => state.calendarProvider);
+  const setCalendarProvider = useSettingsStore((state) => state.setCalendarProvider);
   const googleConfig = useSettingsStore((state) => state.googleConfig);
   const setGoogleConfig = useSettingsStore((state) => state.setGoogleConfig);
+  const expoCalendarConfig = useSettingsStore((state) => state.expoCalendarConfig);
+  const setExpoCalendarConfig = useSettingsStore((state) => state.setExpoCalendarConfig);
   const googleRefreshToken = useSettingsStore((state) => state.googleRefreshToken);
   const setGoogleRefreshToken = useSettingsStore((state) => state.setGoogleRefreshToken);
   const webuntisPassword = useSettingsStore((state) => state.webuntisPassword);
@@ -52,6 +57,22 @@ export default function SettingsScreen() {
       Alert.alert('Google Anmeldung fehlgeschlagen', error instanceof Error ? error.message : 'Unbekannter Fehler');
     }
   }, [googleConfig.clientId, setGoogleRefreshToken]);
+
+  const handleDeviceCalendarSetup = useCallback(async () => {
+    try {
+      const hasPermission = await requestCalendarPermissions();
+      if (!hasPermission) {
+        Alert.alert('Berechtigung erforderlich', 'Bitte erlaube den Zugriff auf den Kalender in den Systemeinstellungen.');
+        return;
+      }
+      
+      const calendarId = await getOrCreateWebUntisCalendar();
+      setExpoCalendarConfig({ calendarId });
+      Alert.alert('Erfolg', 'Gerätekalender eingerichtet. Ein "WebUntis Stundenplan" Kalender wurde erstellt.');
+    } catch (error) {
+      Alert.alert('Gerätekalender-Setup fehlgeschlagen', error instanceof Error ? error.message : 'Unbekannter Fehler');
+    }
+  }, [setExpoCalendarConfig]);
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: palette.background }} contentContainerStyle={styles.container}>
@@ -109,28 +130,57 @@ export default function SettingsScreen() {
         <ToggleRow label="Pausen berücksichtigen" value={includeBreaks} onChange={setIncludeBreaks} />
       </SettingsSection>
 
-      <SettingsSection title="Google Kalender" description="OAuth Client & Zielkalender festlegen.">
-        <InputField label="OAuth Client ID" value={googleConfig.clientId} onChangeText={(text: string) => setGoogleConfig({ clientId: text })} autoCapitalize="none" />
-        <InputField label="Kalender ID" value={googleConfig.calendarId} onChangeText={(text: string) => setGoogleConfig({ calendarId: text })} autoCapitalize="none" />
-        <PrimaryButton
-          label={googleRefreshToken ? 'Verbindung erneuern' : 'Mit Google verbinden'}
-          onPress={handleGoogleConnect}
-          disabled={!googleConfig.clientId}
+      <SettingsSection title="Kalender-Anbieter" description="Wähle, wo deine Termine synchronisiert werden.">
+        <SegmentedControl<CalendarProvider>
+          value={calendarProvider}
+          onChange={setCalendarProvider}
+          options={[
+            { value: 'google', label: 'Google Kalender' },
+            { value: 'device', label: 'Gerätekalender' }
+          ]}
         />
-        {googleRefreshToken ? (
-          <View style={{ gap: 6 }}>
-            <Text style={{ color: palette.success }}>Google Refresh Token gespeichert.</Text>
-            <Text
-              style={{ color: palette.danger, fontWeight: '600' }}
-              onPress={() => void setGoogleRefreshToken(undefined)}
-            >
-              Verbindung trennen
-            </Text>
-          </View>
-        ) : (
-          <Text style={{ color: palette.mutedText }}>Noch keine Google Verbindung aktiv.</Text>
-        )}
       </SettingsSection>
+
+      {calendarProvider === 'google' ? (
+        <SettingsSection title="Google Kalender" description="OAuth Client & Zielkalender festlegen.">
+          <InputField label="OAuth Client ID" value={googleConfig.clientId} onChangeText={(text: string) => setGoogleConfig({ clientId: text })} autoCapitalize="none" />
+          <InputField label="Kalender ID" value={googleConfig.calendarId} onChangeText={(text: string) => setGoogleConfig({ calendarId: text })} autoCapitalize="none" />
+          <PrimaryButton
+            label={googleRefreshToken ? 'Verbindung erneuern' : 'Mit Google verbinden'}
+            onPress={handleGoogleConnect}
+            disabled={!googleConfig.clientId}
+          />
+          {googleRefreshToken ? (
+            <View style={{ gap: 6 }}>
+              <Text style={{ color: palette.success }}>Google Refresh Token gespeichert.</Text>
+              <Text
+                style={{ color: palette.danger, fontWeight: '600' }}
+                onPress={() => void setGoogleRefreshToken(undefined)}
+              >
+                Verbindung trennen
+              </Text>
+            </View>
+          ) : (
+            <Text style={{ color: palette.mutedText }}>Noch keine Google Verbindung aktiv.</Text>
+          )}
+        </SettingsSection>
+      ) : (
+        <SettingsSection title="Gerätekalender" description="Synchronisiere mit dem nativen Kalender auf deinem Gerät.">
+          <PrimaryButton
+            label={expoCalendarConfig.calendarId ? 'Kalender neu einrichten' : 'Kalender einrichten'}
+            onPress={handleDeviceCalendarSetup}
+          />
+          {expoCalendarConfig.calendarId ? (
+            <Text style={{ color: palette.success }}>
+              Gerätekalender eingerichtet. Termine werden im "WebUntis Stundenplan" Kalender gespeichert.
+            </Text>
+          ) : (
+            <Text style={{ color: palette.mutedText }}>
+              Noch kein Gerätekalender eingerichtet. Beim ersten Sync wird automatisch ein Kalender erstellt.
+            </Text>
+          )}
+        </SettingsSection>
+      )}
 
       <SettingsSection title="Automatische Aktualisierung" description="Stelle Zeitpunkt & Aktivierung ein.">
         <ToggleRow label="Aktiv" value={autoSyncEnabled} onChange={(value) => setAutoSync(value, autoSyncTime)} />
