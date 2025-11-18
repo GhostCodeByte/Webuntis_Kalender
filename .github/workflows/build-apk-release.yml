@@ -55,9 +55,6 @@ jobs:
             exit 1
           fi
 
-      - name: Login to EAS
-        run: npx eas login --token "$EXPO_TOKEN"
-
       - name: Install EAS local build dependencies
         run: |
           sudo apt-get update
