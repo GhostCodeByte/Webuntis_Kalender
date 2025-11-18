@@ -41,7 +41,7 @@ jobs:
             ${{ runner.os }}-modules-
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Login to EAS
         if: env.EXPO_TOKEN != ''
