@@ -48,5 +48,8 @@
     "react-test-renderer": "18.3.1",
     "ts-jest": "^29.3.4",
     "typescript": "^5.6.3"
+  },
+  "overrides": {
+    "ajv": "^8.12.0"
   }
 }
