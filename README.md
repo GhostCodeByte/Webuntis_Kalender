@@ -80,11 +80,18 @@ Die App unterstützt zwei Kalender-Anbieter:
 Datei: `.github/workflows/build-apk-release.yml`
 
 1. **Trigger**: `workflow_dispatch` mit `tag_name`, `release_name`, optional `release_notes`.
-2. **Vorbereitung**: checkout, Node 20, npm install, optional `EXPO_TOKEN` Login.
+2. **Vorbereitung**: checkout, Node 20, npm install, `EXPO_TOKEN` Login.
 3. **Build**: `npx eas build --profile preview --platform android --local` (Ausgabe in `dist/`).
 4. **Artefakte**: Upload als Workflow-Artifact und Release-Asset (`WebUntisKalender-<tag>.apk`).
 
-> **Secrets**: Lege `EXPO_TOKEN` an, falls dein EAS-Projekt geschützt ist. Für reine lokalen Builds ist es optional, kann aber für Abwärtskompatibilität bestehen bleiben.
+> **Secrets**: `EXPO_TOKEN` ist **erforderlich** für den Workflow. EAS Build benötigt Authentifizierung, auch für lokale Builds. 
+> 
+> **Setup-Schritte**:
+> 1. Besuche https://expo.dev/settings/tokens und erstelle einen neuen Token
+> 2. Gehe zu deinem Repository → Settings → Secrets and variables → Actions
+> 3. Erstelle ein neues Secret namens `EXPO_TOKEN` mit deinem Token-Wert
+> 
+> Weitere Informationen: https://docs.expo.dev/accounts/programmatic-access/
 
 ## Architektur
 

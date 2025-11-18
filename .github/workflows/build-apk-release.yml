@@ -43,8 +43,19 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
+      - name: Validate EXPO_TOKEN
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN secret is not set. Please add it to your repository secrets."
+            echo "::error::Steps to fix:"
+            echo "::error::1. Visit https://expo.dev/settings/tokens and create a new token"
+            echo "::error::2. Go to your repository Settings > Secrets and variables > Actions"
+            echo "::error::3. Create a new secret named 'EXPO_TOKEN' with your token value"
+            echo "::error::For more info, see: https://docs.expo.dev/accounts/programmatic-access/"
+            exit 1
+          fi
+
       - name: Login to EAS
-        if: env.EXPO_TOKEN != ''
         run: npx eas login --token "$EXPO_TOKEN"
 
       - name: Install EAS local build dependencies
